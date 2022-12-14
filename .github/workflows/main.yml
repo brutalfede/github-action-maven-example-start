@@ -1,5 +1,5 @@
 name: Maven CI/CD
-#is triggered every time a push or a pull request is made to the master branch
+
 on:
  push:
     branches: [ master ]
