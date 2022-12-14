@@ -1,29 +1,54 @@
 name: Maven CI/CD
-
+# workflow is triggered every time a push or a pull request is made to the master branch. 
 on:
  push:
     branches: [ master ]
  pull_request:
     branches: [ master ]
 
-jobs:
-  build_and_test:
 
+
+jobs: # it is under this that we will state the name of all the different jobs we would like to run. 
+
+              #FIRST JOB#
+  build_and_test: # Goal: my maven project builds without any errors.
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v2 # we give our job access to the code in our repository.
+
     - name: Set up JDK 17
-      uses: actions/setup-java@v1
+      uses: actions/setup-java@v1 # sets up a Java environment that our job can run in
       with:
         java-version: 17
-
+    
+    # step with goal that caches the frequently used dependencies. (serve per velocizzare il tempo di esecuzione del workflow)
     - name: Cache the Maven packages to speed up build
-      uses: actions/cache@v1
+      uses: actions/cache@v1 # each time cache action runs it looks for the dependencies you provide in the KEY arguments
       with:
-        path: ~/.m2
-        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2   
-
+        path: ~/.m2 # If it finds a dependency in the cache they will be restored to the argument you provided as path
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }} #  The function returns a hash for all the files given in its path argument (So in our case the current version of our pom.xml file will be hashed and placed as a part of the key.)
+        restore-keys: ${{ runner.os }}-m2   # optional argument that is used when we get a cache miss.
+                                            # ${{ <context_you_want_to_access> }} 
+                                            # runner is an object that contains information about what the current job is running on. 
+                                            # OS is then a string type stored inside the runner object stating what operating system the job is running on.
     - name: Build project with Maven
-      run: mvn -B package --file pom.xml
+      run: mvn -B package --file pom.xml # we create a final step that will build our project using maven package.
+
+                 #SECOND JOB#
+  publish-job: # Goal: Publish build as a package
+        runs-on: ubuntu-latest
+
+        needs: [build_and_test] #It defines the jobs that must successfully complete before the this new job will execute.
+
+        steps:
+          - uses: actions/checkout@v2
+          - uses: actions/setup-java@v1  
+            with:
+              java-version: 17
+          - run: mvn -B package --file pom.xml -DskipTests # -DskipTests is used to signal that we do not want to run the tests again,
+          - run: mkdir staging && cp target/*jar-with-dependencies.jar staging # a folder named staging is created and all files ending with the .jar extension in the target folder is copied into the staging folder.
+          - uses: actions/upload-artifact@v1 # It enables us to upload our package with the name Package and and the in the path argument the file we want to upload is given.
+            with:
+              name: Package
+              path: staging
